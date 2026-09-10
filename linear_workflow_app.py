@@ -17,7 +17,11 @@ st.set_page_config(
 )
 
 
+DEFAULT_MODEL = "gpt-5.6-luna"
 DEFAULT_MODELS = [
+    "gpt-5.6-luna",
+    "gpt-5.6-terra",
+    "gpt-5.6-sol",
     "gpt-5",
     "gpt-5-mini",
     "gpt-4.1",
@@ -65,7 +69,7 @@ def new_agent() -> Dict[str, Any]:
     return {
         "id": agent_id,
         "name": f"Agent {n}",
-        "model": "gpt-5-mini",
+        "model": DEFAULT_MODEL,
         "custom_model": "",
         "system_prompt": "You are a helpful AI agent. Follow the user's instructions accurately.",
         "rag_enabled": False,
@@ -79,7 +83,7 @@ def new_agent() -> Dict[str, Any]:
 
 def effective_model(agent: Dict[str, Any]) -> str:
     custom = agent.get("custom_model", "").strip()
-    return custom if custom else agent.get("model", "gpt-5-mini")
+    return custom if custom else agent.get("model", DEFAULT_MODEL)
 
 
 def extract_text_from_file(uploaded_file) -> str:
@@ -285,9 +289,9 @@ with st.sidebar:
         if st.button("키 확인", use_container_width=True):
             try:
                 client = get_client()
-                client.models.list()
+                client.models.retrieve(DEFAULT_MODEL)
                 st.session_state.api_ok = True
-                st.success("연결 성공")
+                st.success("연결 성공 · GPT-5.6 Luna 사용 가능")
             except Exception as e:
                 st.session_state.api_ok = False
                 st.error(f"연결 실패: {e}")
@@ -297,6 +301,10 @@ with st.sidebar:
             st.session_state.api_ok = False
             st.rerun()
 
+    st.caption(
+        "기본 실행 모델: GPT-5.6 Luna (`gpt-5.6-luna`). "
+        "ChatGPT 구독과 OpenAI API의 사용 권한/결제는 별도로 관리됩니다."
+    )
     st.divider()
     st.caption("RAG 지원 형식: PDF, DOCX, TXT, MD, CSV")
     st.caption("업로드 파일/인덱스/채팅은 현재 Streamlit 세션에만 유지됩니다.")
@@ -327,7 +335,20 @@ with tab_agents:
         st.caption(f"현재 {len(st.session_state.agents)}개")
 
     with top_right:
-        st.info("각 에이전트의 **System Prompt**와 모델을 지정한 뒤 먼저 개별 채팅으로 테스트할 수 있습니다. RAG는 에이전트별로 독립 설정됩니다.")
+        st.info(
+            "새 에이전트의 기본 모델은 **GPT-5.6 Luna (`gpt-5.6-luna`)**입니다. "
+            "각 에이전트별로 다른 모델을 선택하거나 Custom model ID를 사용할 수도 있습니다."
+        )
+        if st.session_state.agents and st.button(
+            "⚡ 모든 에이전트를 GPT-5.6 Luna로 변경",
+            use_container_width=True,
+        ):
+            for _agent_id, _agent in st.session_state.agents.items():
+                _agent["model"] = DEFAULT_MODEL
+                _agent["custom_model"] = ""
+                st.session_state[f"model_{_agent_id}"] = DEFAULT_MODEL
+                st.session_state[f"custom_model_{_agent_id}"] = ""
+            st.rerun()
 
     if not st.session_state.agents:
         st.warning("에이전트가 없습니다. 먼저 '에이전트 추가'를 눌러 주세요.")
@@ -348,13 +369,13 @@ with tab_agents:
                 agent["model"] = st.selectbox(
                     "기본 모델",
                     DEFAULT_MODELS,
-                    index=DEFAULT_MODELS.index(agent["model"]) if agent["model"] in DEFAULT_MODELS else 1,
+                    index=DEFAULT_MODELS.index(agent["model"]) if agent["model"] in DEFAULT_MODELS else DEFAULT_MODELS.index(DEFAULT_MODEL),
                     key=f"model_{agent_id}",
                 )
                 agent["custom_model"] = st.text_input(
                     "Custom model ID (선택)",
                     value=agent.get("custom_model", ""),
-                    placeholder="예: gpt-5.1-mini",
+                    placeholder="예: gpt-5.6-luna",
                     key=f"custom_model_{agent_id}",
                     help="입력하면 위 기본 모델보다 우선합니다.",
                 )
